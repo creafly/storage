@@ -1,0 +1,12 @@
+* @creafly/backend-team
+
+*.go @creafly/backend-team
+
+*.yml @creafly/devops-team
+*.yaml @creafly/devops-team
+Dockerfile @creafly/devops-team
+Makefile @creafly/devops-team
+
+.github/ @creafly/devops-team
+
+*.md @creafly/docs-team

@@ -1,0 +1,24 @@
+#!/bin/sh
+
+set -e
+
+echo "Running pre-commit checks..."
+
+echo "Formatting code..."
+go fmt ./...
+
+if command -v goimports >/dev/null 2>&1; then
+    goimports -w .
+fi
+
+echo "Running linter..."
+if command -v golangci-lint >/dev/null 2>&1; then
+    golangci-lint run --fix
+else
+    echo "Warning: golangci-lint not installed, skipping lint"
+fi
+
+echo "Running tests..."
+go test -v -short ./...
+
+echo "Pre-commit checks passed!"
