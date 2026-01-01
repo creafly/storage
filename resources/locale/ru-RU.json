@@ -1,0 +1,28 @@
+{
+  "errors": {
+    "unauthorized": "Не авторизован",
+    "forbidden": "Доступ запрещен",
+    "userBlocked": "Ваш аккаунт заблокирован",
+    "tenantRequired": "Требуется ID рабочего пространства",
+    "fileRequired": "Файл обязателен",
+    "readFailed": "Не удалось прочитать файл",
+    "uploadFailed": "Не удалось загрузить файл",
+    "fetchFailed": "Не удалось получить данные",
+    "deleteFailed": "Не удалось удалить",
+    "invalidId": "Неверный формат ID",
+    "notFound": "Не найдено",
+    "fileTooLarge": "Файл слишком большой",
+    "invalidType": "Неверный тип файла",
+    "invalidRequest": "Неверный запрос",
+    "createFailed": "Не удалось создать",
+    "updateFailed": "Не удалось обновить",
+    "circularReference": "Невозможно переместить папку в собственную подпапку"
+  },
+  "success": {
+    "fileUploaded": "Файл успешно загружен",
+    "fileDeleted": "Файл успешно удален",
+    "folderCreated": "Папка успешно создана",
+    "folderUpdated": "Папка успешно обновлена",
+    "folderDeleted": "Папка успешно удалена"
+  }
+}

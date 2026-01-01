@@ -1,0 +1,218 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  GO_VERSION: '1.24'
+  SERVICE_NAME: storage
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5440:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+      - name: Run tests
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5440/postgres?sslmode=disable
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-${{ env.SERVICE_NAME }}
+
+  build:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Check registry configuration
+        id: check
+        run: |
+          if [ -n "${{ vars.REGISTRY_URL }}" ] && [ -n "${{ vars.REGISTRY_USERNAME }}" ] && [ -n "${{ secrets.REGISTRY_TOKEN }}" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::Docker build skipped: REGISTRY_URL, REGISTRY_USERNAME, or REGISTRY_TOKEN not configured"
+          fi
+
+      - name: Checkout code
+        if: steps.check.outputs.configured == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        if: steps.check.outputs.configured == 'true'
+        id: version
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          VERSION=${LATEST_TAG#v}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${NEW_VERSION}"
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.configured == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        if: steps.check.outputs.configured == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.REGISTRY_URL }}
+          username: ${{ vars.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Extract metadata
+        if: steps.check.outputs.configured == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.REGISTRY_URL }}/${{ vars.REGISTRY_REPOSITORY }}/${{ env.SERVICE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push
+        if: steps.check.outputs.configured == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+
+      - name: Create Git Tag
+        if: steps.check.outputs.configured == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
+
+      - name: Skip notice
+        if: steps.check.outputs.configured == 'false'
+        run: |
+          echo "Docker build skipped: Registry not configured"
+          echo ""
+          echo "To enable Docker builds, configure the following in your repository settings:"
+          echo "  Variables (Settings → Secrets and variables → Actions → Variables):"
+          echo "    - REGISTRY_URL (e.g., ghcr.io, docker.io)"
+          echo "    - REGISTRY_USERNAME"
+          echo "    - REGISTRY_REPOSITORY"
+          echo ""
+          echo "  Secrets (Settings → Secrets and variables → Actions → Secrets):"
+          echo "    - REGISTRY_TOKEN"
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Check deployment configuration
+        id: check
+        run: |
+          if [ -n "${{ secrets.SERVER_HOST }}" ] && [ -n "${{ secrets.SERVER_SSH_KEY }}" ] && [ -n "${{ vars.REGISTRY_URL }}" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::Deployment skipped: SERVER_HOST, SERVER_SSH_KEY, or REGISTRY_URL not configured"
+          fi
+
+      - name: Deploy via SSH
+        if: steps.check.outputs.configured == 'true'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: REGISTRY_URL,REGISTRY_REPOSITORY,SERVICE_NAME
+          script: |
+            set -e
+            IMAGE="${REGISTRY_URL}/${REGISTRY_REPOSITORY}/${SERVICE_NAME}:latest"
+            echo "Deploying ${SERVICE_NAME} from ${IMAGE}..."
+            
+            docker pull "${IMAGE}"
+            
+            cd /opt/creafly
+            docker compose pull ${SERVICE_NAME}
+            docker compose up -d ${SERVICE_NAME}
+            
+            sleep 5
+            if docker compose ps ${SERVICE_NAME} | grep -q "Up"; then
+              echo "Service ${SERVICE_NAME} is running"
+            else
+              echo "ERROR: Service ${SERVICE_NAME} failed to start"
+              docker compose logs --tail=50 ${SERVICE_NAME}
+              exit 1
+            fi
+        env:
+          REGISTRY_URL: ${{ vars.REGISTRY_URL }}
+          REGISTRY_REPOSITORY: ${{ vars.REGISTRY_REPOSITORY }}
+          SERVICE_NAME: ${{ env.SERVICE_NAME }}
+
+      - name: Skip notice
+        if: steps.check.outputs.configured == 'false'
+        run: |
+          echo "Deployment skipped: Server not configured"
+          echo ""
+          echo "To enable deployment, configure the following:"
+          echo "  Secrets:"
+          echo "    - SERVER_HOST: Your server IP address"
+          echo "    - SERVER_SSH_KEY: Private SSH key for root user"
+          echo "  Variables:"
+          echo "    - REGISTRY_URL, REGISTRY_REPOSITORY"

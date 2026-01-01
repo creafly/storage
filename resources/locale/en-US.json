@@ -1,0 +1,28 @@
+{
+  "errors": {
+    "unauthorized": "Unauthorized",
+    "forbidden": "Access denied",
+    "userBlocked": "Your account has been blocked",
+    "tenantRequired": "Tenant ID is required",
+    "fileRequired": "File is required",
+    "readFailed": "Failed to read file",
+    "uploadFailed": "Failed to upload file",
+    "fetchFailed": "Failed to fetch data",
+    "deleteFailed": "Failed to delete",
+    "invalidId": "Invalid ID format",
+    "notFound": "Not found",
+    "fileTooLarge": "File is too large",
+    "invalidType": "Invalid file type",
+    "invalidRequest": "Invalid request",
+    "createFailed": "Failed to create",
+    "updateFailed": "Failed to update",
+    "circularReference": "Cannot move folder into its own subfolder"
+  },
+  "success": {
+    "fileUploaded": "File uploaded successfully",
+    "fileDeleted": "File deleted successfully",
+    "folderCreated": "Folder created successfully",
+    "folderUpdated": "Folder updated successfully",
+    "folderDeleted": "Folder deleted successfully"
+  }
+}
