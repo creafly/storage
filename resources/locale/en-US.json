@@ -1,0 +1,20 @@
+{
+  "errors": {
+    "unauthorized": "Unauthorized",
+    "forbidden": "Access denied",
+    "tenantRequired": "Tenant ID is required",
+    "fileRequired": "File is required",
+    "readFailed": "Failed to read file",
+    "uploadFailed": "Failed to upload file",
+    "fetchFailed": "Failed to fetch data",
+    "deleteFailed": "Failed to delete file",
+    "invalidId": "Invalid ID format",
+    "notFound": "Not found",
+    "fileTooLarge": "File is too large",
+    "invalidType": "Invalid file type"
+  },
+  "success": {
+    "fileUploaded": "File uploaded successfully",
+    "fileDeleted": "File deleted successfully"
+  }
+}
