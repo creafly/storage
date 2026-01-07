@@ -4,13 +4,16 @@ import (
 	"context"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/creafly/logger"
+	"github.com/creafly/outbox"
 	"github.com/creafly/storage/internal/config"
 	"github.com/creafly/storage/internal/domain/repository"
 	"github.com/creafly/storage/internal/domain/service"
 	"github.com/creafly/storage/internal/handler"
 	"github.com/creafly/storage/internal/infra/client"
 	"github.com/creafly/storage/internal/infra/database"
+	"github.com/creafly/storage/internal/infra/kafka"
 	"github.com/creafly/storage/internal/infra/minio"
 	"github.com/jmoiron/sqlx"
 	"github.com/xlab/closer"
@@ -21,6 +24,14 @@ type serviceProvider struct {
 
 	db       *sqlx.DB
 	migrator *database.Migrator
+
+	kafkaProducer sarama.SyncProducer
+
+	outboxEventHandler outbox.EventHandler
+	outboxWorker       *outbox.Worker
+	outboxRepo         outbox.Repository
+
+	brandingConsumer *kafka.BrandingConsumer
 
 	minioClient *minio.Client
 
@@ -35,6 +46,7 @@ type serviceProvider struct {
 	healthHandler *handler.HealthHandler
 
 	identityClient *client.IdentityClient
+	brandingClient *client.BrandingClient
 }
 
 func newServiceProvider() *serviceProvider {
@@ -80,6 +92,61 @@ func (sp *serviceProvider) GetMigrator() *database.Migrator {
 	return sp.migrator
 }
 
+func (sp *serviceProvider) GetKafkaProducer() sarama.SyncProducer {
+	if sp.kafkaProducer == nil && sp.GetConfig().Kafka.Enabled && len(sp.GetConfig().Kafka.Brokers) > 0 {
+		kafkaConfig := sarama.NewConfig()
+		kafkaConfig.Producer.Return.Successes = true
+		kafkaConfig.Producer.RequiredAcks = sarama.WaitForAll
+		kafkaConfig.Producer.Retry.Max = 3
+
+		producer, err := sarama.NewSyncProducer(sp.GetConfig().Kafka.Brokers, kafkaConfig)
+		if err != nil {
+			logger.Warn().Err(err).Msg("Failed to create Kafka producer, using noop handler")
+			return nil
+		}
+
+		sp.kafkaProducer = producer
+
+		closer.Bind(func() {
+			if err := sp.kafkaProducer.Close(); err != nil {
+				logger.Error().Err(err).Msg("Error closing Kafka producer")
+			}
+		})
+	}
+	return sp.kafkaProducer
+}
+
+func (sp *serviceProvider) GetOutboxEventHandler() outbox.EventHandler {
+	if sp.outboxEventHandler == nil {
+		if sp.GetConfig().Kafka.Enabled && sp.GetKafkaProducer() != nil {
+			sp.outboxEventHandler = NewKafkaEventHandler(sp.GetKafkaProducer())
+		} else {
+			sp.outboxEventHandler = &outbox.NoOpHandler{}
+		}
+	}
+	return sp.outboxEventHandler
+}
+
+func (sp *serviceProvider) GetOutboxRepo() outbox.Repository {
+	if sp.outboxRepo == nil {
+		sp.outboxRepo = outbox.NewPostgresRepository(sp.GetDB())
+	}
+	return sp.outboxRepo
+}
+
+func (sp *serviceProvider) GetOutboxWorker() *outbox.Worker {
+	if sp.outboxWorker == nil {
+		sp.outboxWorker = outbox.NewWorker(
+			sp.GetOutboxRepo(),
+			sp.GetOutboxEventHandler(),
+			outbox.DefaultWorkerConfig(),
+			outbox.WithLogger(logger.Log),
+		)
+		closer.Bind(sp.outboxWorker.Stop)
+	}
+	return sp.outboxWorker
+}
+
 func (sp *serviceProvider) GetMinioClient() *minio.Client {
 	if sp.minioClient == nil {
 		cfg := sp.GetConfig()
@@ -119,6 +186,7 @@ func (sp *serviceProvider) GetFileService() *service.FileService {
 			sp.GetFileRepo(),
 			sp.GetMinioClient(),
 			cfg.Upload,
+			sp.GetOutboxRepo(),
 		)
 	}
 	return sp.fileService
@@ -161,4 +229,68 @@ func (sp *serviceProvider) GetIdentityClient() *client.IdentityClient {
 		sp.identityClient = client.NewIdentityClient(cfg.Identity.ServiceURL)
 	}
 	return sp.identityClient
+}
+
+func (sp *serviceProvider) GetBrandingClient() *client.BrandingClient {
+	if sp.brandingClient == nil {
+		cfg := sp.GetConfig()
+		sp.brandingClient = client.NewBrandingClient(cfg.Branding.ServiceURL)
+	}
+	return sp.brandingClient
+}
+
+type KafkaEventHandler struct {
+	producer sarama.SyncProducer
+	topicMap map[string]string
+}
+
+func NewKafkaEventHandler(producer sarama.SyncProducer) *KafkaEventHandler {
+	return &KafkaEventHandler{
+		producer: producer,
+		topicMap: map[string]string{
+			"storage.logo_file_deleted":  "storage",
+			"storage.logo_files_deleted": "storage",
+		},
+	}
+}
+
+func (h *KafkaEventHandler) Handle(ctx context.Context, event *outbox.Event) error {
+	topic := h.getTopic(event.EventType)
+
+	msg := &sarama.ProducerMessage{
+		Topic: topic,
+		Key:   sarama.StringEncoder(event.ID.String()),
+		Value: sarama.StringEncoder(event.Payload),
+		Headers: []sarama.RecordHeader{
+			{Key: []byte("event_type"), Value: []byte(event.EventType)},
+			{Key: []byte("event_id"), Value: []byte(event.ID.String())},
+			{Key: []byte("created_at"), Value: []byte(event.CreatedAt.Format(time.RFC3339))},
+		},
+	}
+
+	_, _, err := h.producer.SendMessage(msg)
+	return err
+}
+
+func (h *KafkaEventHandler) getTopic(eventType string) string {
+	if topic, ok := h.topicMap[eventType]; ok {
+		return topic
+	}
+	return "events"
+}
+
+func (sp *serviceProvider) GetBrandingConsumer() *kafka.BrandingConsumer {
+	if sp.brandingConsumer == nil && sp.GetConfig().Kafka.Enabled && len(sp.GetConfig().Kafka.Brokers) > 0 {
+		consumer, err := kafka.NewBrandingConsumer(
+			sp.GetConfig().Kafka.Brokers,
+			"storage-branding-consumer",
+			sp.GetFileService(),
+		)
+		if err != nil {
+			logger.Warn().Err(err).Msg("Failed to create branding consumer")
+			return nil
+		}
+		sp.brandingConsumer = consumer
+	}
+	return sp.brandingConsumer
 }

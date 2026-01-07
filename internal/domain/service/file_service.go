@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/creafly/outbox"
 	"github.com/creafly/storage/internal/config"
 	"github.com/creafly/storage/internal/domain/entity"
 	"github.com/creafly/storage/internal/domain/repository"
@@ -19,17 +20,20 @@ type FileService struct {
 	fileRepo    *repository.FileRepository
 	minioClient *minio.Client
 	uploadCfg   config.UploadConfig
+	outboxRepo  outbox.Repository
 }
 
 func NewFileService(
 	fileRepo *repository.FileRepository,
 	minioClient *minio.Client,
 	uploadCfg config.UploadConfig,
+	outboxRepo outbox.Repository,
 ) *FileService {
 	return &FileService{
 		fileRepo:    fileRepo,
 		minioClient: minioClient,
 		uploadCfg:   uploadCfg,
+		outboxRepo:  outboxRepo,
 	}
 }
 
@@ -181,12 +185,25 @@ func (s *FileService) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UU
 		return &UploadError{Code: "forbidden", Message: "Access denied"}
 	}
 
+	isLogo := file.FileType == entity.FileTypeLogo
+
 	if err := s.minioClient.Delete(ctx, file.Path); err != nil {
 		return fmt.Errorf("failed to delete from storage: %w", err)
 	}
 
 	if err := s.fileRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete file record: %w", err)
+	}
+
+	if isLogo && s.outboxRepo != nil {
+		payload, err := outbox.CreatePayload(map[string]any{
+			"file_id":   id.String(),
+			"tenant_id": tenantID.String(),
+		})
+		if err == nil {
+			event := outbox.NewEvent("storage.logo_file_deleted", payload)
+			_ = s.outboxRepo.Create(ctx, event)
+		}
 	}
 
 	return nil
@@ -230,7 +247,100 @@ type BatchDeleteResult struct {
 	Failed  []uuid.UUID `json:"failed"`
 }
 
+func (s *FileService) DeleteWithoutOutbox(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	file, err := s.fileRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if file == nil {
+		return &UploadError{Code: "not_found", Message: "File not found"}
+	}
+
+	if file.TenantID != tenantID {
+		return &UploadError{Code: "forbidden", Message: "Access denied"}
+	}
+
+	if err := s.minioClient.Delete(ctx, file.Path); err != nil {
+		return fmt.Errorf("failed to delete from storage: %w", err)
+	}
+
+	if err := s.fileRepo.Delete(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete file record: %w", err)
+	}
+
+	return nil
+}
+
 func (s *FileService) DeleteMany(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) (*BatchDeleteResult, error) {
+	if len(ids) == 0 {
+		return &BatchDeleteResult{Deleted: []uuid.UUID{}, Failed: []uuid.UUID{}}, nil
+	}
+
+	files, err := s.fileRepo.GetByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get files: %w", err)
+	}
+
+	fileMap := make(map[uuid.UUID]*entity.File)
+	for i := range files {
+		fileMap[files[i].ID] = &files[i]
+	}
+
+	result := &BatchDeleteResult{
+		Deleted: []uuid.UUID{},
+		Failed:  []uuid.UUID{},
+	}
+
+	var toDelete []uuid.UUID
+	var pathsToDelete []string
+	var logoFileIDs []string
+
+	for _, id := range ids {
+		file, exists := fileMap[id]
+		if !exists {
+			result.Failed = append(result.Failed, id)
+			continue
+		}
+
+		if file.TenantID != tenantID {
+			result.Failed = append(result.Failed, id)
+			continue
+		}
+
+		toDelete = append(toDelete, id)
+		pathsToDelete = append(pathsToDelete, file.Path)
+
+		if file.FileType == entity.FileTypeLogo {
+			logoFileIDs = append(logoFileIDs, id.String())
+		}
+	}
+
+	for _, path := range pathsToDelete {
+		_ = s.minioClient.Delete(ctx, path)
+	}
+
+	if len(toDelete) > 0 {
+		if err := s.fileRepo.DeleteMany(ctx, toDelete); err != nil {
+			return nil, fmt.Errorf("failed to delete file records: %w", err)
+		}
+		result.Deleted = toDelete
+	}
+
+	if len(logoFileIDs) > 0 && s.outboxRepo != nil {
+		payload, err := outbox.CreatePayload(map[string]any{
+			"file_ids":  logoFileIDs,
+			"tenant_id": tenantID.String(),
+		})
+		if err == nil {
+			event := outbox.NewEvent("storage.logo_files_deleted", payload)
+			_ = s.outboxRepo.Create(ctx, event)
+		}
+	}
+
+	return result, nil
+}
+
+func (s *FileService) DeleteManyWithoutOutbox(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) (*BatchDeleteResult, error) {
 	if len(ids) == 0 {
 		return &BatchDeleteResult{Deleted: []uuid.UUID{}, Failed: []uuid.UUID{}}, nil
 	}

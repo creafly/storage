@@ -85,7 +85,22 @@ func (a *App) StartMigrator(migrateUp, migrateDown bool) {
 func (a *App) StartApp(ctx context.Context) {
 	a.startTracing(ctx)
 	a.ensureMinioBucket(ctx)
+	a.startKafkaServices(ctx)
 	a.startHTTPServer()
+}
+
+func (a *App) startKafkaServices(ctx context.Context) {
+	cfg := a.serviceProvider.GetConfig()
+	if !cfg.Kafka.Enabled {
+		return
+	}
+
+	go a.serviceProvider.GetOutboxWorker().Start(ctx)
+
+	if consumer := a.serviceProvider.GetBrandingConsumer(); consumer != nil {
+		consumer.Start(ctx)
+		closer.Bind(consumer.Stop)
+	}
 }
 
 func (a *App) startTracing(ctx context.Context) {

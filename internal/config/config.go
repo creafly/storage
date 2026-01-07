@@ -21,6 +21,8 @@ type Config struct {
 	CORS      CORSConfig
 	Tracing   TracingConfig
 	RateLimit RateLimitConfig
+	Kafka     KafkaConfig
+	Branding  BrandingConfig
 }
 
 type RateLimitConfig struct {
@@ -56,6 +58,15 @@ type UploadConfig struct {
 }
 
 type IdentityConfig struct {
+	ServiceURL string
+}
+
+type KafkaConfig struct {
+	Enabled bool
+	Brokers []string
+}
+
+type BrandingConfig struct {
 	ServiceURL string
 }
 
@@ -141,6 +152,13 @@ func Load() *Config {
 			Enabled:           getEnvBool("RATE_LIMIT_ENABLED", true),
 			RequestsPerSecond: getEnvFloat("RATE_LIMIT_RPS", 100),
 			BurstSize:         getEnvInt("RATE_LIMIT_BURST", 200),
+		},
+		Kafka: KafkaConfig{
+			Enabled: getEnvBool("KAFKA_ENABLED", false),
+			Brokers: splitNonEmpty(getEnv("KAFKA_BROKERS", "localhost:9092"), ","),
+		},
+		Branding: BrandingConfig{
+			ServiceURL: getEnv("BRANDING_SERVICE_URL", "http://localhost:8084"),
 		},
 	}
 }
