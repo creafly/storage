@@ -100,7 +100,7 @@ func cleanupTables(t *testing.T, db *sqlx.DB) {
 func (tdb *TestDB) Cleanup(t *testing.T) {
 	t.Helper()
 	cleanupTables(t, tdb.DB)
-	tdb.DB.Close()
+	_ = tdb.DB.Close()
 }
 
 func NewTestFile() *entity.File {

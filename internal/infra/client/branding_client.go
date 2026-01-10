@@ -45,7 +45,7 @@ func (c *BrandingClient) GetLogoByFileID(ctx context.Context, tenantID, fileID u
 	if err != nil {
 		return nil, fmt.Errorf("failed to call branding service: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, nil

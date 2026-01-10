@@ -150,9 +150,10 @@ func (h *TestableFileHandler) Delete(c *gin.Context) {
 	if err != nil {
 		if uploadErr, ok := err.(*service.UploadError); ok {
 			status := http.StatusBadRequest
-			if uploadErr.Code == "not_found" {
+			switch uploadErr.Code {
+			case "not_found":
 				status = http.StatusNotFound
-			} else if uploadErr.Code == "forbidden" {
+			case "forbidden":
 				status = http.StatusForbidden
 			}
 			c.JSON(status, gin.H{"error": uploadErr.Message, "code": uploadErr.Code})

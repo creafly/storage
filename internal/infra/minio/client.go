@@ -75,7 +75,7 @@ func (c *Client) Download(ctx context.Context, objectPath string) ([]byte, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get object: %w", err)
 	}
-	defer obj.Close()
+	defer func() { _ = obj.Close() }()
 
 	data, err := io.ReadAll(obj)
 	if err != nil {

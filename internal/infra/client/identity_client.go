@@ -58,7 +58,7 @@ func (c *IdentityClient) VerifyToken(ctx context.Context, accessToken string) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to call identity service: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var verifyResp VerifyResponse
 	if err := json.NewDecoder(resp.Body).Decode(&verifyResp); err != nil {
@@ -82,7 +82,7 @@ func (c *IdentityClient) ValidateTenantAccess(ctx context.Context, accessToken s
 	if err != nil {
 		return false, fmt.Errorf("failed to call identity service: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return false, nil

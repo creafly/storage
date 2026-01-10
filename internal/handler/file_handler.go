@@ -55,7 +55,7 @@ func (h *FileHandler) Upload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": messages.Errors.FileRequired})
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
@@ -202,9 +202,10 @@ func (h *FileHandler) Delete(c *gin.Context) {
 	if err != nil {
 		if uploadErr, ok := err.(*service.UploadError); ok {
 			status := http.StatusBadRequest
-			if uploadErr.Code == "not_found" {
+			switch uploadErr.Code {
+			case "not_found":
 				status = http.StatusNotFound
-			} else if uploadErr.Code == "forbidden" {
+			case "forbidden":
 				status = http.StatusForbidden
 			}
 			c.JSON(status, gin.H{"error": uploadErr.Message, "code": uploadErr.Code})
@@ -240,9 +241,10 @@ func (h *FileHandler) GetPresignedURL(c *gin.Context) {
 	if err != nil {
 		if uploadErr, ok := err.(*service.UploadError); ok {
 			status := http.StatusBadRequest
-			if uploadErr.Code == "not_found" {
+			switch uploadErr.Code {
+			case "not_found":
 				status = http.StatusNotFound
-			} else if uploadErr.Code == "forbidden" {
+			case "forbidden":
 				status = http.StatusForbidden
 			}
 			c.JSON(status, gin.H{"error": uploadErr.Message, "code": uploadErr.Code})
