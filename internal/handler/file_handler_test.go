@@ -10,6 +10,7 @@ import (
 
 	"github.com/creafly/storage/internal/domain/entity"
 	"github.com/creafly/storage/internal/domain/service"
+	"github.com/creafly/storage/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -172,15 +173,15 @@ func setupTestRouter() *gin.Engine {
 }
 
 func TestTestableFileHandler_List(t *testing.T) {
-	tenantID := uuid.New()
+	tenantID := utils.GenerateUUID()
 
 	t.Run("success", func(t *testing.T) {
 		mockSvc := new(MockFileService)
 		handler := NewTestableFileHandler(mockSvc)
 
 		files := []entity.File{
-			{ID: uuid.New(), TenantID: tenantID, FileName: "test1.png"},
-			{ID: uuid.New(), TenantID: tenantID, FileName: "test2.png"},
+			{ID: utils.GenerateUUID(), TenantID: tenantID, FileName: "test1.png"},
+			{ID: utils.GenerateUUID(), TenantID: tenantID, FileName: "test2.png"},
 		}
 
 		fileList := &entity.FileList{
@@ -229,8 +230,8 @@ func TestTestableFileHandler_List(t *testing.T) {
 }
 
 func TestTestableFileHandler_GetByID(t *testing.T) {
-	tenantID := uuid.New()
-	fileID := uuid.New()
+	tenantID := utils.GenerateUUID()
+	fileID := utils.GenerateUUID()
 
 	t.Run("success", func(t *testing.T) {
 		mockSvc := new(MockFileService)
@@ -282,7 +283,7 @@ func TestTestableFileHandler_GetByID(t *testing.T) {
 		mockSvc := new(MockFileService)
 		handler := NewTestableFileHandler(mockSvc)
 
-		differentTenantID := uuid.New()
+		differentTenantID := utils.GenerateUUID()
 		file := &entity.File{
 			ID:       fileID,
 			TenantID: differentTenantID,
@@ -324,8 +325,8 @@ func TestTestableFileHandler_GetByID(t *testing.T) {
 }
 
 func TestTestableFileHandler_Delete(t *testing.T) {
-	tenantID := uuid.New()
-	fileID := uuid.New()
+	tenantID := utils.GenerateUUID()
+	fileID := utils.GenerateUUID()
 
 	t.Run("success", func(t *testing.T) {
 		mockSvc := new(MockFileService)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/creafly/storage/internal/domain/entity"
 	"github.com/creafly/storage/internal/domain/repository"
+	"github.com/creafly/storage/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -50,7 +51,7 @@ func (s *FolderService) Create(ctx context.Context, tenantID, userID uuid.UUID, 
 
 	now := time.Now()
 	folder := &entity.Folder{
-		ID:        uuid.New(),
+		ID:        utils.GenerateUUID(),
 		TenantID:  tenantID,
 		ParentID:  req.ParentID,
 		Name:      req.Name,

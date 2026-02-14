@@ -31,10 +31,10 @@ github.com/containerd/errdefs/pkg v0.3.0/go.mod h1:NJw6s9HwNuRhnjJhM7pylWwMyAkmC
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/creafly/logger v0.2.0 h1:1X7u3RbcugvNDnf0pm4+bSGvX8Bv72OcsX0H6U/Z5dc=
 github.com/creafly/logger v0.2.0/go.mod h1:ta8HBK3Lze1L5pjgPj02uGHd3iic3ZWGwja931VAggE=
-github.com/creafly/middleware v0.2.0 h1:Ii96BmMdP+H8rQCWZGLjyz1QYmggcnA4H+KBOD5ABj4=
-github.com/creafly/middleware v0.2.0/go.mod h1:nfhfNaPTJNRJWEfrA8fYPS04OSER6+VeCSMSD9G/czo=
-github.com/creafly/outbox v0.1.0 h1:S9w0ViqvhKVNOIdi+cVwOnR562Gw9bTWagECtXHJmhY=
-github.com/creafly/outbox v0.1.0/go.mod h1:U7A7ExbcdJKi4vdvjYtnf3R7EUYICHFNqympiEVms6w=
+github.com/creafly/middleware v0.2.1 h1:b/CFwYtd0Llz7v9icZcHZVg+/gMdc2LoV5h1DxE2hik=
+github.com/creafly/middleware v0.2.1/go.mod h1:nfhfNaPTJNRJWEfrA8fYPS04OSER6+VeCSMSD9G/czo=
+github.com/creafly/outbox v0.1.2 h1:OqWOk/qT617JNFnRHB3gx/JlmMODPxPiKAMIIUcCmPM=
+github.com/creafly/outbox v0.1.2/go.mod h1:U7A7ExbcdJKi4vdvjYtnf3R7EUYICHFNqympiEVms6w=
 github.com/creafly/tracing v0.1.0 h1:IwxmE4nMwAsqJFHgbdDNJhvw9W1r+lnlvlcpsD7JUeE=
 github.com/creafly/tracing v0.1.0/go.mod h1:KKKD0rA9AaNNSeGwXSN2v41n1lalgqYsxjz4LycE0o4=
 github.com/creafly/vault v0.1.1 h1:yeU0Xl1Mxc2vu/x3742OWcKkbTgYaGKnn+p061ipuRo=

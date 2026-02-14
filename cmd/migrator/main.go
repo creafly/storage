@@ -1,7 +1,7 @@
 package main
 
 import (
-	"context"
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,11 +12,14 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
 	defer logger.Shutdown()
 
+	migrateUp := flag.Bool("migrate-up", false, "Run database migrations up")
+	migrateDown := flag.Bool("migrate-down", false, "Run database migrations down")
+	flag.Parse()
+
 	app := app.NewApp()
-	app.StartApp(ctx)
+	app.StartMigrator(*migrateUp, *migrateDown)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

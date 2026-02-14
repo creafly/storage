@@ -5,8 +5,8 @@ go 1.24.2
 require (
 	github.com/IBM/sarama v1.45.1
 	github.com/creafly/logger v0.2.0
-	github.com/creafly/middleware v0.2.0
-	github.com/creafly/outbox v0.1.0
+	github.com/creafly/middleware v0.2.1
+	github.com/creafly/outbox v0.1.2
 	github.com/creafly/tracing v0.1.0
 	github.com/creafly/vault v0.1.1
 	github.com/gin-gonic/gin v1.11.0

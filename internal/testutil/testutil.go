@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/creafly/storage/internal/domain/entity"
+	"github.com/creafly/storage/internal/utils"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -106,10 +107,10 @@ func (tdb *TestDB) Cleanup(t *testing.T) {
 func NewTestFile() *entity.File {
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	return &entity.File{
-		ID:           uuid.New(),
-		TenantID:     uuid.New(),
-		UploadedBy:   uuid.New(),
-		FileName:     "test-file-" + uuid.New().String()[:8] + ".png",
+		ID:           utils.GenerateUUID(),
+		TenantID:     utils.GenerateUUID(),
+		UploadedBy:   utils.GenerateUUID(),
+		FileName:     "test-file-" + utils.GenerateUUID().String()[:8] + ".png",
 		OriginalName: "original-image.png",
 		ContentType:  "image/png",
 		FileType:     entity.FileTypeImage,

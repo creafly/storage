@@ -13,6 +13,7 @@ import (
 	"github.com/creafly/storage/internal/domain/entity"
 	"github.com/creafly/storage/internal/domain/repository"
 	"github.com/creafly/storage/internal/infra/minio"
+	"github.com/creafly/storage/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -97,7 +98,7 @@ func (s *FileService) Upload(ctx context.Context, req entity.UploadFileRequest) 
 	if ext == "" {
 		ext = s.getExtensionFromContentType(req.ContentType)
 	}
-	uniqueFileName := fmt.Sprintf("%s_%d%s", uuid.New().String(), time.Now().UnixNano(), ext)
+	uniqueFileName := fmt.Sprintf("%s_%d%s", utils.GenerateUUID().String(), time.Now().UnixNano(), ext)
 
 	objectPath, err := s.minioClient.Upload(ctx, req.TenantID, uniqueFileName, req.ContentType, req.Data)
 	if err != nil {
@@ -107,7 +108,7 @@ func (s *FileService) Upload(ctx context.Context, req entity.UploadFileRequest) 
 	url := s.minioClient.GetPublicURL(objectPath)
 
 	file := &entity.File{
-		ID:           uuid.New(),
+		ID:           utils.GenerateUUID(),
 		TenantID:     req.TenantID,
 		UploadedBy:   req.UserID,
 		FolderID:     req.FolderID,

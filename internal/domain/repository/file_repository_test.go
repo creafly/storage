@@ -6,7 +6,7 @@ import (
 
 	"github.com/creafly/storage/internal/domain/entity"
 	"github.com/creafly/storage/internal/testutil"
-	"github.com/google/uuid"
+	"github.com/creafly/storage/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -66,7 +66,7 @@ func TestFileRepository_GetByID(t *testing.T) {
 	})
 
 	t.Run("not found returns nil", func(t *testing.T) {
-		found, err := repo.GetByID(ctx, uuid.New())
+		found, err := repo.GetByID(ctx, utils.GenerateUUID())
 		require.NoError(t, err)
 		assert.Nil(t, found)
 	})
@@ -80,7 +80,7 @@ func TestFileRepository_GetByTenantID(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("returns files for tenant", func(t *testing.T) {
-		tenantID := uuid.New()
+		tenantID := utils.GenerateUUID()
 
 		for i := 0; i < 3; i++ {
 			file := testutil.NewTestFileWithTenant(tenantID)
@@ -102,7 +102,7 @@ func TestFileRepository_GetByTenantID(t *testing.T) {
 	})
 
 	t.Run("filters by file type", func(t *testing.T) {
-		tenantID := uuid.New()
+		tenantID := utils.GenerateUUID()
 
 		imageFile := testutil.NewTestFileWithTenant(tenantID)
 		imageFile.FileType = entity.FileTypeImage
@@ -127,7 +127,7 @@ func TestFileRepository_GetByTenantID(t *testing.T) {
 	})
 
 	t.Run("respects limit and offset", func(t *testing.T) {
-		tenantID := uuid.New()
+		tenantID := utils.GenerateUUID()
 
 		for i := 0; i < 5; i++ {
 			file := testutil.NewTestFileWithTenant(tenantID)
@@ -149,7 +149,7 @@ func TestFileRepository_GetByTenantID(t *testing.T) {
 	})
 
 	t.Run("empty result for unknown tenant", func(t *testing.T) {
-		files, err := repo.GetByTenantID(ctx, uuid.New(), nil, nil, 10, 0, false)
+		files, err := repo.GetByTenantID(ctx, utils.GenerateUUID(), nil, nil, 10, 0, false)
 		require.NoError(t, err)
 		assert.Empty(t, files)
 	})
@@ -176,7 +176,7 @@ func TestFileRepository_Delete(t *testing.T) {
 	})
 
 	t.Run("not found returns error", func(t *testing.T) {
-		err := repo.Delete(ctx, uuid.New())
+		err := repo.Delete(ctx, utils.GenerateUUID())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "file not found")
 	})
@@ -206,7 +206,7 @@ func TestFileRepository_UpdateURL(t *testing.T) {
 	})
 
 	t.Run("update non-existent file does not error", func(t *testing.T) {
-		err := repo.UpdateURL(ctx, uuid.New(), "https://example.com/test.png")
+		err := repo.UpdateURL(ctx, utils.GenerateUUID(), "https://example.com/test.png")
 		require.NoError(t, err)
 	})
 }

@@ -1,7 +1,8 @@
-.PHONY: build run test clean migrate-up migrate-down migrate-create dev
+.PHONY: build run test clean migrate-up migrate-down migrate-create dev setup-hooks
 
 build:
 	go build -o bin/api ./cmd/api
+	go build -o bin/migrator ./cmd/migrator
 
 run: build
 	./bin/api
@@ -28,10 +29,10 @@ lint:
 	golangci-lint run
 
 migrate-up: build
-	./bin/api -migrate-up
+	./bin/migrator -migrate-up
 
 migrate-down: build
-	./bin/api -migrate-down
+	./bin/migrator -migrate-down
 
 migrate-create:
 	@if [ -z "$(name)" ]; then echo "Usage: make migrate-create name=migration_name"; exit 1; fi
