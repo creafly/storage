@@ -8,7 +8,7 @@ require (
 	github.com/creafly/middleware v0.2.1
 	github.com/creafly/outbox v0.1.2
 	github.com/creafly/tracing v0.1.0
-	github.com/creafly/vault v0.1.1
+	github.com/creafly/vault v0.2.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
