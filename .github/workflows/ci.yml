@@ -122,7 +122,7 @@ jobs:
       - name: Extract metadata
         if: steps.check.outputs.configured == 'true'
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ vars.REGISTRY_URL }}/${{ vars.REGISTRY_REPOSITORY }}/${{ env.SERVICE_NAME }}
           tags: |
